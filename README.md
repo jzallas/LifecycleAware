@@ -47,7 +47,7 @@ public class MyActivity extends AppCompatActivity {
 In the case that your target class is not a core Android component (ie not an `Activity`),
 you can still perform auto binding. You just need to properly provide the target when binding:
 
-```
+```java
 class MyTarget {
   @LifecycleAware(Lifecycle.Event.ON_DESTROY)
   LifecycleEventObserver observer = new MyObserver();
@@ -61,7 +61,7 @@ LifecycleBinder.bind(myTarget, MyActivity.this);
 In the case that your `Lifecycle` is customized, you can still perform auto binding.
 You just need to properly provide the `LifecycleOwner` or `Lifecycle` when binding:
 
-```
+```java
 LifecycleBinder.bind(someTarget, myCustomOwner);
 // or
 LifecycleBinder.bind(someTarget, myCustomLifecycle);
