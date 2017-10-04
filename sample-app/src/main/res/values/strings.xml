@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">LifecycleAware</string>
+    <string name="action_settings">Settings</string>
+    <string name="go_back">Once you go back, the logs should update with info from the registered lifecycle.</string>
+</resources>

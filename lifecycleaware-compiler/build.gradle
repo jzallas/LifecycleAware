@@ -1,0 +1,16 @@
+apply plugin: 'java-library'
+
+dependencies {
+    implementation fileTree(dir: 'libs', include: ['*.jar'])
+    implementation 'com.squareup:javapoet:1.9.0'
+    implementation 'com.google.auto.service:auto-service:1.0-rc3'
+    implementation 'com.google.guava:guava:23.1-jre'
+    implementation 'android.arch.lifecycle:extensions:1.0.0-alpha9-1'
+    implementation project(':lifecycleaware')
+
+    testImplementation 'junit:junit:4.12'
+    testImplementation 'org.mockito:mockito-core:2.10.0'
+}
+
+sourceCompatibility = "1.8"
+targetCompatibility = "1.8"

@@ -1,0 +1,1 @@
+include ':sample-app', ':lifecycleaware', ':lifecycleaware-compiler'
