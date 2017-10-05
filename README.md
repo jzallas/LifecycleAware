@@ -17,7 +17,9 @@ Getting Started
 
 ```groovy
 dependencies {
-  // TBD
+    // or use 'compile' for older versions of gradle
+    implementation 'com.jzallas:lifecycleaware:0.0.1'
+    annotationProcessor 'com.jzallas:lifecycleaware-compiler:0.0.1'
 }
 ```
 
