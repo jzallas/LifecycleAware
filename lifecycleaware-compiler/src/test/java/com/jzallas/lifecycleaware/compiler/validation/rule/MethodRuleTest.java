@@ -1,5 +1,8 @@
 package com.jzallas.lifecycleaware.compiler.validation.rule;
 
+import com.jzallas.lifecycleaware.LifecycleAware;
+import com.jzallas.lifecycleaware.LifecycleAwareObserver;
+
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.Mock;
@@ -14,10 +17,9 @@ import javax.lang.model.util.Types;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doReturn;
 
-public class SuperinterfaceRuleTest {
+public class MethodRuleTest {
     @Mock
     private Elements mockElementUtils;
 
@@ -33,12 +35,15 @@ public class SuperinterfaceRuleTest {
     @Mock
     private TypeMirror mockMirror, mockObserverMirror;
 
-    private SuperinterfaceRule testRule;
+    private MethodRule testRule;
+
+    @Mock
+    private LifecycleAware mockAnnotation;
 
     @Before
     public void setup() {
         MockitoAnnotations.initMocks(this);
-        testRule = new SuperinterfaceRule(mockElementUtils, mockTypeUtils);
+        testRule = new MethodRule(mockElementUtils, mockTypeUtils);
         doReturn(mockMirror)
                 .when(mockElement)
                 .asType();
@@ -46,32 +51,53 @@ public class SuperinterfaceRuleTest {
         doReturn(mockObserverMirror)
                 .when(mockObserverElement)
                 .asType();
+
+        doReturn(mockAnnotation)
+                .when(mockElement)
+                .getAnnotation(LifecycleAware.class);
     }
 
     @Test
-    public void testApplyPass() throws Exception {
-        doReturn(mockObserverElement)
-                .when(mockElementUtils)
-                .getTypeElement(anyString());
+    public void testApplyWithInterfacePass() throws Exception {
+        prepareSuperinterfaceUtils(true);
 
-        doReturn(true)
-                .when(mockTypeUtils)
-                .isAssignable(mockMirror, mockObserverMirror);
+        assertTrue(testRule.apply(mockElement));
+    }
+
+    public void testApplyWithMethodPass() throws Exception {
+        prepareSuperinterfaceUtils(false);
+
+        doReturn("test_method")
+                .when(mockAnnotation)
+                .method();
 
         assertTrue(testRule.apply(mockElement));
     }
 
     @Test
     public void testApplyFail() throws Exception {
-        doReturn(mockObserverElement)
-                .when(mockElementUtils)
-                .getTypeElement(anyString());
+        prepareSuperinterfaceUtils(false);
 
-        doReturn(false)
-                .when(mockTypeUtils)
-                .isAssignable(mockMirror, mockObserverMirror);
+        doReturn("")
+                .when(mockAnnotation)
+                .method();
 
         assertFalse(testRule.apply(mockElement));
+    }
+
+    /**
+     * Setup the mock util objects to return the provided mock value when checking for the superinterface
+     *
+     * @param mock <em>true</em> if the mock element 'implements the correct interface'
+     */
+    private void prepareSuperinterfaceUtils(boolean mock) {
+        doReturn(mockObserverElement)
+                .when(mockElementUtils)
+                .getTypeElement(LifecycleAwareObserver.class.getName());
+
+        doReturn(mock)
+                .when(mockTypeUtils)
+                .isAssignable(mockMirror, mockObserverMirror);
     }
 
     @Test

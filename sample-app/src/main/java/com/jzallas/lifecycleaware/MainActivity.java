@@ -11,9 +11,13 @@ import android.widget.TextView;
 
 public class MainActivity extends AppCompatActivity {
 
-    // lifecycleLogger.onLifecycleEvent(...) during onStart(...)
+    // logger1.onLifecycleEvent(...) during onStart(...)
     @LifecycleAware(Lifecycle.Event.ON_START)
-    LifecycleLogger lifecycleLogger = new LifecycleLogger();
+    LifecycleLogger logger1 = new LifecycleLogger();
+
+    // logger2.log() during onResume(...)
+    @LifecycleAware(value = Lifecycle.Event.ON_RESUME, method = "log")
+    GenericLogger logger2 = new GenericLogger();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -24,7 +28,8 @@ public class MainActivity extends AppCompatActivity {
         LifecycleBinder.bind(this);
 
         TextView textView = findViewById(R.id.textview1);
-        lifecycleLogger.attachTextView(textView);
+        logger1.attachTextView(textView);
+        logger2.attachTextView(textView);
 
         Toolbar toolbar = findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);

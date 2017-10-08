@@ -16,4 +16,5 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.SOURCE)
 public @interface LifecycleAware {
     Lifecycle.Event value();
+    String method() default "";
 }

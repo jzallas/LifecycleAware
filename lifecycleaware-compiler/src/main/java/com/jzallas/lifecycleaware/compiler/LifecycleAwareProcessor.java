@@ -1,20 +1,27 @@
 package com.jzallas.lifecycleaware.compiler;
 
+import android.arch.lifecycle.Lifecycle;
+
 import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableSet;
 import com.jzallas.lifecycleaware.LifecycleAware;
+import com.jzallas.lifecycleaware.LifecycleAwareObserver;
 import com.jzallas.lifecycleaware.compiler.generators.ClassGenerator;
 import com.jzallas.lifecycleaware.compiler.generators.LifecycleObserverGenerator;
+import com.jzallas.lifecycleaware.compiler.generators.MethodWrapperGenerator;
 import com.jzallas.lifecycleaware.compiler.generators.TargetBinderGenerator;
+import com.jzallas.lifecycleaware.compiler.producers.LifecycleObserverNameProducer;
+import com.jzallas.lifecycleaware.compiler.producers.MethodWrapperNameProducer;
+import com.jzallas.lifecycleaware.compiler.producers.TargetBinderNameProducer;
 import com.jzallas.lifecycleaware.compiler.validation.ElementChecker;
 import com.squareup.javapoet.JavaFile;
 
 import java.io.IOException;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.Filer;
@@ -51,22 +58,6 @@ public class LifecycleAwareProcessor extends AbstractProcessor {
     }
 
     /**
-     * Creates a {@link Stream} emitting only {@link Element}s that can be
-     * properly handled by this {@link LifecycleAwareProcessor}. This stream will stop the processor
-     * if it finds anything that might cause a problem during compile time.
-     *
-     * @param roundEnvironment environment as provided by {@link #process(Set, RoundEnvironment)}
-     * @return filtered {@link Stream} ready to use for processing
-     * @throws ProcessingException when the annotation is misused
-     */
-    private Stream<? extends Element> toElementStream(RoundEnvironment roundEnvironment) {
-        final ElementChecker checker = new ElementChecker(elementUtils, typeUtils, messager);
-        return roundEnvironment.getElementsAnnotatedWith(LifecycleAware.class)
-                .stream()
-                .filter(checker::validate);
-    }
-
-    /**
      * Attempt to generate the file.
      *
      * @param file configured {@link JavaFile} to write out
@@ -81,29 +72,94 @@ public class LifecycleAwareProcessor extends AbstractProcessor {
         }
     }
 
-    @Override
+    /**
+     * Checks the annotated {@link Element}s for misuse
+     *
+     * @param annotatedElements
+     */
+    private void validate(Collection<? extends Element> annotatedElements) {
+        // Check the annotated elements for misuse first
+        ElementChecker elementChecker = new ElementChecker(elementUtils, typeUtils, messager);
+        annotatedElements.forEach(elementChecker::validate);
+    }
+
+    /**
+     * Creates all of the required {@link android.arch.lifecycle.LifecycleObserver}s for the provided elements.
+     *
+     * @param annotatedElements
+     */
+    private void createLifecycleObservers(Collection<? extends Element> annotatedElements) {
+        final LifecycleObserverNameProducer producer = new LifecycleObserverNameProducer();
+        final LifecycleObserverGenerator generator =
+                new LifecycleObserverGenerator(producer, elementUtils, typeUtils, messager);
+
+        annotatedElements.stream()
+                .filter(Utils.distinctByKey(element -> element.getAnnotation(LifecycleAware.class).value()))
+                .map(generator::attachElements)
+                .map(ClassGenerator::build)
+                .forEach(this::writeFile);
+    }
+
+    /**
+     * Creates all of the required wrappers for observers that don't implement {@link LifecycleAwareObserver}
+     *
+     * @param annotatedElements
+     */
+    private void createWrappedObservers(Collection<? extends Element> annotatedElements) {
+        final MethodWrapperNameProducer producer = new MethodWrapperNameProducer(elementUtils, typeUtils);
+        final MethodWrapperGenerator generator =
+                new MethodWrapperGenerator(producer, elementUtils, typeUtils, messager);
+
+        annotatedElements.stream()
+                .filter(element -> !Utils.implementsInterface(elementUtils, typeUtils, element, LifecycleAwareObserver.class))
+                .filter(Utils.distinctByKey(producer::getClassName))
+                .map(generator::attachElements)
+                .map(ClassGenerator::build)
+                .forEach(this::writeFile);
+    }
+
+
+    /**
+     * Creates the binder that attaches the observers to the {@link Lifecycle}.
+     *
+     * @param annotatedElements
+     */
+    private void createBinding(Collection<? extends Element> annotatedElements) {
+        Map<Element, ? extends List<? extends Element>> targetMapping =
+                annotatedElements.stream()
+                        .collect(Collectors.groupingBy(Element::getEnclosingElement));
+
+        final TargetBinderNameProducer producer = new TargetBinderNameProducer(elementUtils);
+        final TargetBinderGenerator generator =
+                new TargetBinderGenerator(producer, elementUtils, typeUtils, messager);
+
+        // binder needs to know the names of the other classes we generated
+        generator.attachProducers(
+                new LifecycleObserverNameProducer(),
+                new MethodWrapperNameProducer(elementUtils, typeUtils)
+        );
+
+        // create all target binders
+        targetMapping.keySet()
+                .stream()
+                .map(target -> generator.attachElements(target, targetMapping.get(target)))
+                .map(ClassGenerator::build)
+                .forEach(this::writeFile);
+    }
+
     public boolean process(Set<? extends TypeElement> set, RoundEnvironment roundEnvironment) {
         try {
-            // Create all the unique lifecycle observers first
-            toElementStream(roundEnvironment)
-                    .filter(Utils.distinctByKey(element -> element.getAnnotation(LifecycleAware.class).value()))
-                    .map(element -> new LifecycleObserverGenerator(elementUtils, messager, typeUtils)
-                            .attachElements(element))
-                    .map(ClassGenerator::build)
-                    .forEach(this::writeFile);
+            Set<? extends Element> annotatedElements =
+                    roundEnvironment.getElementsAnnotatedWith(LifecycleAware.class);
 
-            // Aggregate elements by target
-            Map<Element, ? extends List<? extends Element>> targetMapping =
-                    toElementStream(roundEnvironment)
-                            .collect(Collectors.groupingBy(Element::getEnclosingElement));
+            validate(annotatedElements);
 
-            // create all target binders
-            targetMapping.keySet()
-                    .stream()
-                    .map(target -> new TargetBinderGenerator(elementUtils, messager, typeUtils)
-                            .attachElements(target, targetMapping.get(target)))
-                    .map(ClassGenerator::build)
-                    .forEach(this::writeFile);
+            createLifecycleObservers(annotatedElements);
+
+            createWrappedObservers(annotatedElements);
+
+            createBinding(annotatedElements);
+
         } catch (ProcessingException processingException) {
             // if we had a processing exception, then return true to indicate that this
             // processor hasn't completed. The appropriate error should have already been

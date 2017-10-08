@@ -7,8 +7,8 @@ import android.arch.lifecycle.OnLifecycleEvent;
 import com.google.common.collect.ImmutableList;
 import com.jzallas.lifecycleaware.LifecycleAware;
 import com.jzallas.lifecycleaware.LifecycleAwareObserver;
+import com.jzallas.lifecycleaware.compiler.producers.ClassNameProducer;
 import com.squareup.javapoet.AnnotationSpec;
-import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.MethodSpec;
 import com.squareup.javapoet.TypeSpec;
 
@@ -24,26 +24,18 @@ import javax.lang.model.util.Types;
  * Creates a {@link LifecycleObserver} for every requested {@link Lifecycle.Event}
  */
 public class LifecycleObserverGenerator extends AbstractClassGenerator {
-
-    private static final String OBSERVER_CLASS_SUFFIX = LifecycleObserver.class.getSimpleName();
-    private static final String OBSERVER_PACKAGE_NAME = LifecycleAware.class.getPackage().getName();
     private static final String FIELD_OBSERVER = "observer";
     private static final String ANNOT_DEFAULT_NAME = "value";
 
     private Element annotatedElement;
 
-    public LifecycleObserverGenerator(Elements elementUtils, Messager messager, Types typeUtils) {
-        super(elementUtils, messager, typeUtils);
+    public LifecycleObserverGenerator(ClassNameProducer producer, Elements elementUtils, Types typeUtils, Messager messager) {
+        super(producer, elementUtils, typeUtils, messager);
     }
 
     public LifecycleObserverGenerator attachElements(Element annotatedElement) {
         this.annotatedElement = annotatedElement;
         return this;
-    }
-
-    @Override
-    protected String getPackage() {
-        return OBSERVER_PACKAGE_NAME;
     }
 
     private MethodSpec defineLifecycleHook() {
@@ -61,12 +53,6 @@ public class LifecycleObserverGenerator extends AbstractClassGenerator {
                 .addModifiers(Modifier.PUBLIC)
                 .addStatement("$L.$L($T.$L)", FIELD_OBSERVER, methodName, Lifecycle.Event.class, lifecycleEvent)
                 .build();
-    }
-
-    static ClassName createObserverName(Element element) {
-        LifecycleAware lifecycleCall = element.getAnnotation(LifecycleAware.class);
-        String clazz = lifecycleCall.value().name() + OBSERVER_CLASS_SUFFIX;
-        return ClassName.get(OBSERVER_PACKAGE_NAME, clazz);
     }
 
     @Override
@@ -88,10 +74,16 @@ public class LifecycleObserverGenerator extends AbstractClassGenerator {
 
     @Override
     public TypeSpec defineClass() {
-        return TypeSpec.classBuilder(createObserverName(annotatedElement))
+        return TypeSpec.classBuilder(producer.getClassName(annotatedElement))
                 .addSuperinterface(LifecycleObserver.class)
                 .addField(LifecycleAwareObserver.class, FIELD_OBSERVER, Modifier.PRIVATE)
                 .addModifiers(Modifier.PUBLIC, Modifier.FINAL)
                 .build();
     }
+
+    @Override
+    protected String getPackage() {
+        return producer.getClassName(annotatedElement).packageName();
+    }
+
 }

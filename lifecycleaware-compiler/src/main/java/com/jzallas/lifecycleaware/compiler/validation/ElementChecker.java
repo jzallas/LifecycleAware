@@ -3,9 +3,9 @@ package com.jzallas.lifecycleaware.compiler.validation;
 import com.google.common.collect.ImmutableList;
 import com.jzallas.lifecycleaware.compiler.LifecycleAwareProcessor;
 import com.jzallas.lifecycleaware.compiler.ProcessingException;
+import com.jzallas.lifecycleaware.compiler.validation.rule.MethodRule;
 import com.jzallas.lifecycleaware.compiler.validation.rule.ModifierRule;
 import com.jzallas.lifecycleaware.compiler.validation.rule.ProcessingRule;
-import com.jzallas.lifecycleaware.compiler.validation.rule.SuperinterfaceRule;
 import com.jzallas.lifecycleaware.compiler.validation.rule.TypeRule;
 
 import java.util.List;
@@ -68,7 +68,7 @@ public class ElementChecker {
     protected List<ProcessingRule> getRules() {
         return ImmutableList.of(
                 new ModifierRule(elementUtils, typeUtils),
-                new SuperinterfaceRule(elementUtils, typeUtils),
+                new MethodRule(elementUtils, typeUtils),
                 new TypeRule(elementUtils, typeUtils)
         );
     }
