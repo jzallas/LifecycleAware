@@ -3,7 +3,7 @@ LifecycleAware
 
 [![CircleCI](https://circleci.com/gh/jzallas/LifecycleAware/tree/master.svg?style=shield)](https://circleci.com/gh/jzallas/LifecycleAware/tree/master)
 
-Annotation based triggers that automatically hook arbitrary observers into the Android lifecycle.
+Annotation based triggers that automatically hook observers into the Android lifecycle.
 
  * Pick and choose different lifecycle events for each annotated observer
  * Leverages `android.arch.lifecycle` components and is compatible with the very same `Lifecycle.Event`s
@@ -12,18 +12,7 @@ Annotation based triggers that automatically hook arbitrary observers into the A
 
 Getting Started
 ---------------
-
-### Gradle
-
-```groovy
-dependencies {
-    // or use 'compile' for older versions of gradle
-    implementation 'com.jzallas:lifecycleaware:0.0.1'
-    annotationProcessor 'com.jzallas:lifecycleaware-compiler:0.0.1'
-}
-```
-
-### Setup
+##### Marking your Observers
 In order to properly facilitate auto binding, your observers need two things:
  1. Your observers needs to implement `LifecycleEventObserver`
  3. Your observers needs to be initialized before you call `LifecycleBinder.bind(...)`
@@ -39,13 +28,21 @@ public class MyActivity extends AppCompatActivity {
   @Override
   protected void onCreate(Bundle savedInstanceState) {
       super.onCreate(savedInstanceState);
-      // bind the observers to this Activity's lifecycle
+      // bind all observers to this Activity's lifecycle
       LifecycleBinder.bind(this);
   }
 }
 ```
+##### Method based Observers
+It is possible quickly register _any_ variable as `LifecycleAware` as long as you provide the method that should be called during the lifecycle event.
 
-### Custom Targets
+```java
+// myList will automatically clear() during onResume(...)
+@LifecycleAware(value = Lifecycle.Event.ON_RESUME, method = "clear")
+List<String> myList = new ArrayList<>();
+```
+
+##### Custom Targets
 In the case that your target class is not a core Android component (ie not an `Activity`),
 you can still perform auto binding. You just need to properly provide the target when binding:
 
@@ -59,7 +56,7 @@ MyTarget myTarget = new MyTarget();
 LifecycleBinder.bind(myTarget, MyActivity.this);
 ```
 
-### Custom Lifecycles
+##### Custom Lifecycles
 In the case that your `Lifecycle` is customized, you can still perform auto binding.
 You just need to properly provide the `LifecycleOwner` or `Lifecycle` when binding:
 
@@ -69,13 +66,18 @@ LifecycleBinder.bind(someTarget, myCustomOwner);
 LifecycleBinder.bind(someTarget, myCustomLifecycle);
 ```
 
-### Arbitrary Observers
-
-coming soon...
-
-### Samples
-
+Samples
+-------
 You can find examples in the included [sample app](/sample-app).
+
+Dependencies
+------------
+```groovy
+dependencies {
+    implementation 'com.jzallas:lifecycleaware:0.1.0'
+    annotationProcessor 'com.jzallas:lifecycleaware-compiler:0.1.0'
+}
+```
 
 License
 -------
