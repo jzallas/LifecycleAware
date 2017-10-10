@@ -1,5 +1,6 @@
 package com.jzallas.lifecycleaware.compiler.generators;
 
+import com.jzallas.lifecycleaware.compiler.producers.ClassNameProducer;
 import com.squareup.javapoet.JavaFile;
 import com.squareup.javapoet.TypeSpec;
 
@@ -9,11 +10,13 @@ import javax.lang.model.util.Types;
 
 public abstract class AbstractClassGenerator implements ClassGenerator {
 
+    ClassNameProducer producer;
     Elements elementUtils;
-    private Messager messager;
-    private Types typeUtils;
+    Messager messager;
+    Types typeUtils;
 
-    AbstractClassGenerator(Elements elementUtils, Messager messager, Types typeUtils){
+    AbstractClassGenerator(ClassNameProducer producer, Elements elementUtils, Types typeUtils, Messager messager){
+        this.producer = producer;
         this.elementUtils = elementUtils;
         this.messager = messager;
         this.typeUtils = typeUtils;

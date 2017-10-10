@@ -8,6 +8,12 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collector;
 
+import javax.lang.model.element.Element;
+import javax.lang.model.element.TypeElement;
+import javax.lang.model.type.TypeMirror;
+import javax.lang.model.util.Elements;
+import javax.lang.model.util.Types;
+
 public class Utils {
     /**
      * Convenience method to help filtering distinct items in a {@link java.util.stream.Stream} by the provided {@link Predicate}
@@ -32,5 +38,18 @@ public class Utils {
                 CodeBlock.Builder::add,
                 (builder, builder2) -> builder.add(builder2.build())
         );
+    }
+
+    public static boolean implementsInterface(Elements elementUtils, Types typeUtils, Element element, Class<?> clazz) {
+        TypeMirror classType = elementUtils.getTypeElement(clazz.getName()).asType();
+        return typeUtils.isAssignable(element.asType(), classType);
+    }
+
+    public static String tryToExtractClassName(Types typeUtils, Element element) {
+        TypeElement typeElement = (TypeElement) typeUtils.asElement(element.asType());
+        // TODO - consider consequences if annotated field is a generic
+        return typeElement == null
+                ? element.getSimpleName().toString()
+                : typeElement.getSimpleName().toString();
     }
 }

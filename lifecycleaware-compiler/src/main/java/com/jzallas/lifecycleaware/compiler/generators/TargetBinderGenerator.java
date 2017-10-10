@@ -5,8 +5,10 @@ import android.support.annotation.UiThread;
 
 import com.google.common.collect.ImmutableList;
 import com.jzallas.lifecycleaware.LifecycleAware;
+import com.jzallas.lifecycleaware.LifecycleAwareObserver;
 import com.jzallas.lifecycleaware.LifecycleBindingException;
 import com.jzallas.lifecycleaware.compiler.Utils;
+import com.jzallas.lifecycleaware.compiler.producers.ClassNameProducer;
 import com.squareup.javapoet.CodeBlock;
 import com.squareup.javapoet.MethodSpec;
 import com.squareup.javapoet.TypeName;
@@ -24,17 +26,17 @@ import javax.lang.model.util.Types;
  * Creates a Binder for every class that contains {@link LifecycleAware} annotations
  */
 public class TargetBinderGenerator extends AbstractClassGenerator {
-
-    private static final String BINDER_CLASS_SUFFIX = LifecycleAware.class.getSimpleName() + "Binder";
     private static final Class PARAM_TYPE_LIFECYCLE = Lifecycle.class;
     private static final String PARAM_NAME_LIFECYCLE = "lifecycle";
     private static final String PARAM_NAME_TARGET = "target";
 
     private List<? extends Element> annotatedElements;
     private Element parent;
+    private ClassNameProducer lifecycleObserverProducer;
+    private ClassNameProducer wrappedProducer;
 
-    public TargetBinderGenerator(Elements elementUtils, Messager messager, Types typeUtils) {
-        super(elementUtils, messager, typeUtils);
+    public TargetBinderGenerator(ClassNameProducer producer, Elements elementUtils, Types typeUtils, Messager messager) {
+        super(producer, elementUtils, typeUtils, messager);
     }
 
     public TargetBinderGenerator attachElements(Element parent, List<? extends Element> annotatedElements) {
@@ -43,9 +45,10 @@ public class TargetBinderGenerator extends AbstractClassGenerator {
         return this;
     }
 
-    @Override
-    protected String getPackage() {
-        return elementUtils.getPackageOf(parent).getQualifiedName().toString();
+    public void attachProducers(ClassNameProducer lifecycleObserverProducer, ClassNameProducer wrappedProducer) {
+
+        this.lifecycleObserverProducer = lifecycleObserverProducer;
+        this.wrappedProducer = wrappedProducer;
     }
 
     private CodeBlock buildBindingAll() {
@@ -58,18 +61,10 @@ public class TargetBinderGenerator extends AbstractClassGenerator {
     private CodeBlock buildBindingOne(Element element) {
         final String exceptionParamName = "exception";
         final String lifecycleBindingExceptionType = "uninitializedFailure";
-        final String lifecycleBindMethod = "addObserver";
 
         return CodeBlock.builder()
                 .beginControlFlow("try")
-                .addStatement(
-                        "$L.$L(new $T($L.$L))",
-                        PARAM_NAME_LIFECYCLE,
-                        lifecycleBindMethod,
-                        LifecycleObserverGenerator.createObserverName(element),
-                        PARAM_NAME_TARGET,
-                        element.getSimpleName()
-                )
+                .add(observerStatement(element))
                 .nextControlFlow("catch ($T $L)", NullPointerException.class, exceptionParamName)
                 .addStatement(
                         "throw $T.$L($L, $L)",
@@ -80,6 +75,41 @@ public class TargetBinderGenerator extends AbstractClassGenerator {
                 )
                 .endControlFlow()
                 .build();
+    }
+
+    private CodeBlock observerStatement(Element element) {
+        final String lifecycleBindMethod = "addObserver";
+
+        return CodeBlock.builder()
+                .addStatement("$L.$L(new $T($L))",
+                        PARAM_NAME_LIFECYCLE,
+                        lifecycleBindMethod,
+                        lifecycleObserverProducer.getClassName(element),
+                        wrapObserverIfNecessary(element))
+                .build();
+    }
+
+    /**
+     * Returns the element formatted as a code block if the element is an observer.
+     * If the element is not an observer, wrap it in an observer and return that instead.
+     *
+     * @param element
+     * @return
+     */
+    private CodeBlock wrapObserverIfNecessary(Element element) {
+        boolean needsWrapper = !Utils.implementsInterface(elementUtils, typeUtils, element, LifecycleAwareObserver.class);
+        if (needsWrapper) {
+            return CodeBlock.builder()
+                    .add("new $T($L.$L)",
+                            wrappedProducer.getClassName(element),
+                            PARAM_NAME_TARGET,
+                            element.getSimpleName())
+                    .build();
+        } else {
+            return CodeBlock.builder()
+                    .add("$L.$L", PARAM_NAME_TARGET, element.getSimpleName())
+                    .build();
+        }
     }
 
     @Override
@@ -99,8 +129,13 @@ public class TargetBinderGenerator extends AbstractClassGenerator {
     }
 
     @Override
+    protected String getPackage() {
+        return producer.getClassName(parent).packageName();
+    }
+
+    @Override
     public TypeSpec defineClass() {
-        return TypeSpec.classBuilder(parent.getSimpleName() + BINDER_CLASS_SUFFIX)
+        return TypeSpec.classBuilder(producer.getClassName(parent))
                 .addModifiers(Modifier.PUBLIC, Modifier.FINAL)
                 .build();
     }
