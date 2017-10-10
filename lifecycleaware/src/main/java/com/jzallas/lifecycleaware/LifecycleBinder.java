@@ -2,6 +2,7 @@ package com.jzallas.lifecycleaware;
 
 import android.arch.lifecycle.Lifecycle;
 import android.arch.lifecycle.LifecycleOwner;
+import android.support.annotation.NonNull;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
@@ -26,7 +27,7 @@ public final class LifecycleBinder extends AbstractBinder {
      *
      * @param owner
      */
-    public static void bind(LifecycleOwner owner) {
+    public static void bind(@NonNull LifecycleOwner owner) {
         bind(owner, owner.getLifecycle());
     }
 
@@ -37,7 +38,7 @@ public final class LifecycleBinder extends AbstractBinder {
      * @param target
      * @param owner
      */
-    public static void bind(Object target, LifecycleOwner owner) {
+    public static void bind(@NonNull Object target, @NonNull LifecycleOwner owner) {
         bind(target, owner.getLifecycle());
     }
 
@@ -47,7 +48,7 @@ public final class LifecycleBinder extends AbstractBinder {
      *
      * @param lifecycle
      */
-    public static void bind(Lifecycle lifecycle) {
+    public static void bind(@NonNull Lifecycle lifecycle) {
         bind(lifecycle, lifecycle);
     }
 
@@ -58,7 +59,7 @@ public final class LifecycleBinder extends AbstractBinder {
      * @param target
      * @param lifecycle
      */
-    public static void bind(Object target, Lifecycle lifecycle) {
+    public static void bind(@NonNull Object target, @NonNull Lifecycle lifecycle) {
         new LifecycleBinder(target, lifecycle).performBind();
     }
 
@@ -88,6 +89,9 @@ public final class LifecycleBinder extends AbstractBinder {
             throw LifecycleBindingException.generalFailure(target, e);
         } catch (InvocationTargetException e) {
             logError("Constructor threw an unexpected exception", e);
+            if (e.getTargetException() instanceof LifecycleBindingException) {
+                throw (LifecycleBindingException) e.getTargetException();
+            }
             throw LifecycleBindingException.generalFailure(target, e);
         }
     }
@@ -103,7 +107,7 @@ public final class LifecycleBinder extends AbstractBinder {
         Class<?> clazz = target.getClass();
         //noinspection TryWithIdenticalCatches
         try {
-            String bindingClassName = clazz.getName() + LifecycleAware.class.getSimpleName() + "Binder";
+            String bindingClassName = getBindingClassName(clazz);
             Class<?> bindingClass = clazz.getClassLoader().loadClass(bindingClassName);
             return bindingClass.getConstructor(clazz, Lifecycle.class);
         } catch (ClassNotFoundException e) {
@@ -112,5 +116,14 @@ public final class LifecycleBinder extends AbstractBinder {
             logWarn("Couldn't find the generated binding constructor", e);
         }
         return null;
+    }
+
+    private String getBindingClassName(Class<?> clazz) {
+        return String.format(
+                "%s_%s_%s",
+                clazz.getName(),
+                LifecycleAware.class.getSimpleName(),
+                "Binder"
+        );
     }
 }

@@ -12,6 +12,10 @@ import org.mockito.MockitoAnnotations;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 
+import static org.junit.Assert.assertSame;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.mock;
+
 public class LifecycleBinderTest {
 
     @Mock
@@ -32,18 +36,34 @@ public class LifecycleBinderTest {
     }
 
     @Test(expected = LifecycleBindingException.class)
-    public void testConstructorExceptionFailure() throws Exception {
-        validateFailure(Mockito.mock(InvocationTargetException.class));
+    public void testConstructorKnownExceptionFailure() throws Exception {
+        InvocationTargetException targetException = mock(InvocationTargetException.class);
+        LifecycleBindingException bindingException = mock(LifecycleBindingException.class);
+
+        doReturn(bindingException)
+                .when(targetException)
+                .getTargetException();
+        try {
+            validateFailure(targetException);
+        } catch (LifecycleBindingException exception) {
+            assertSame(bindingException, exception);
+            throw exception;
+        }
+    }
+
+    @Test(expected = LifecycleBindingException.class)
+    public void testConstructorUnknownExceptionFailure() throws Exception {
+        validateFailure(mock(InvocationTargetException.class));
     }
 
     @Test(expected = LifecycleBindingException.class)
     public void testConstructorNotVisibleFailure() throws Exception {
-        validateFailure(Mockito.mock(IllegalAccessException.class));
+        validateFailure(mock(IllegalAccessException.class));
     }
 
     @Test(expected = LifecycleBindingException.class)
     public void testAbstractClassFailure() throws Exception {
-        validateFailure(Mockito.mock(InstantiationException.class));
+        validateFailure(mock(InstantiationException.class));
     }
 
     private void validateFailure(Throwable throwable) throws Exception {
@@ -75,8 +95,8 @@ public class LifecycleBinderTest {
     }
 
     @SuppressWarnings("unused")
-    private static class TestTargetLifecycleAwareBinder {
-        public TestTargetLifecycleAwareBinder(TestTarget target, Lifecycle lifecycle) {
+    private static class TestTarget_LifecycleAware_Binder {
+        public TestTarget_LifecycleAware_Binder(TestTarget target, Lifecycle lifecycle) {
             // stub
         }
     }

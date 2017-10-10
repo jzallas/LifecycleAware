@@ -59,19 +59,20 @@ public class TargetBinderGenerator extends AbstractClassGenerator {
     }
 
     private CodeBlock buildBindingOne(Element element) {
-        final String exceptionParamName = "exception";
         final String lifecycleBindingExceptionType = "uninitializedFailure";
 
         return CodeBlock.builder()
-                .beginControlFlow("try")
+                .beginControlFlow("if ($L.$L != $L)",
+                        PARAM_NAME_TARGET,
+                        element.getSimpleName(),
+                        null)
                 .add(observerStatement(element))
-                .nextControlFlow("catch ($T $L)", NullPointerException.class, exceptionParamName)
+                .nextControlFlow("else")
                 .addStatement(
-                        "throw $T.$L($L, $L)",
+                        "throw $T.$L($L)",
                         LifecycleBindingException.class,
                         lifecycleBindingExceptionType,
-                        PARAM_NAME_LIFECYCLE,
-                        exceptionParamName
+                        PARAM_NAME_TARGET
                 )
                 .endControlFlow()
                 .build();
